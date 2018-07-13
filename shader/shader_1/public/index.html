@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Title</title>
+    <style>
+        body {
+            margin: 0;
+        }
+        canvas {
+            width: 100px;
+            height: 100px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Vertex Shader -->
+<script id="vertexShader" type="x-shader/x-vertex">
+    void main() {
+        gl_Position = vec4(position, 1.0);
+    }
+</script>
+
+<!-- Fragment Shader -->
+<script id="fragmentShader" type="x-shader/x-fragment">
+    uniform vec2 u_resolution;
+    uniform float u_time;
+
+    void main() {
+        vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+        vec3 color = vec3(uv, 1.0);
+        gl_FragColor = vec4(color, 1.0);
+    }
+</script>
+<script src="main.js"></script>
+
+</body>
+</html>
