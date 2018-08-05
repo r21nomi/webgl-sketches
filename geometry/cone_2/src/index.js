@@ -78,7 +78,7 @@ ball.position.y = 160;
 scene.add(ball);
 
 var renderer = new THREE.WebGLRenderer();
-renderer.setClearColor(0x222222);
+renderer.setClearColor(0xeeeeee);
 renderer.setPixelRatio(window.devicePixelRatio);
 
 console.log(THREE);
