@@ -6,9 +6,23 @@ var fragmentShader = require('webpack-glsl-loader!./shader/fragmentShader.frag')
 let clock = new THREE.Clock();
 let scene = new THREE.Scene();
 
+let colorsPerFace = [
+    "#3628EF", "#FF5DEF", "#8747FE", "#088FFE", "#03A6CE"
+];
+
+// from https://stackoverflow.com/a/5624139
+function hexToRgb(hex) {
+    let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return {
+        r: parseInt(result[1], 16) / 255,
+        g: parseInt(result[2], 16) / 255,
+        b: parseInt(result[3], 16) / 255
+    };
+}
+
 const vertices = [];
 const colors = [];
-const particleCount = 30000;
+const particleCount = 50000;
 
 const geometry = new THREE.BufferGeometry();
 
@@ -18,10 +32,8 @@ for (let i = 0; i < particleCount; i++) {
     const z = Math.floor(Math.random() * 1000 - 500);
     vertices.push(x, y, z);
 
-    const r = Math.random();
-    const g = Math.random();
-    const b = Math.random();
-    colors.push(r, g, b);
+    const rgbColor = hexToRgb(colorsPerFace[Math.floor(Math.random() * colorsPerFace.length)]);
+    colors.push(rgbColor.r, rgbColor.g, rgbColor.b);
 }
 
 const verticesArray = new Float32Array(vertices);
