@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 
 let TWEEN = require('@tweenjs/tween.js');
+let vertexShader = require('webpack-glsl-loader!./shader/vertexShader.vert');
+let fragmentShader = require('webpack-glsl-loader!./shader/fragmentShader.frag');
 
 let clock = new THREE.Clock();
 let scene = new THREE.Scene();
 
 let colorsPerFace = [
-    0x286B47, 0xACFFD2, 0x58EB9C, 0x486B58, 0x45B87A
+    0x008F2E, 0x5DDC00, 0x3B8900, 0x99FF1F, 0xBFFF59, 0x00BB7D
 ];
 
 let originalVerticesArray = [];
@@ -59,19 +61,6 @@ objectGroup.add(object);
 
 scene.add(objectGroup);
 
-// Floor
-let floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(3000, 3000, 1, 1),
-    new THREE.ShadowMaterial({
-        opacity: 0.1
-    })
-);
-floor.position.y = 0;
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-floor.opacity = 0.9;
-scene.add(floor);
-
 // Light
 let light = new THREE.SpotLight(0xffffff);
 light.position.set(0, 450, 0);
@@ -83,8 +72,9 @@ let fov = 45;
 let aspect = window.innerWidth / window.innerHeight;
 let cameraDistance = 1000;
 let camera = new THREE.PerspectiveCamera(fov, aspect);
+let cameraLookAt = new THREE.Vector3(objectPosition.x, objectPosition.y, objectPosition.z);
 camera.position.set(0, 600, cameraDistance);
-camera.lookAt(new THREE.Vector3(0, 0, 0));
+camera.lookAt(cameraLookAt);
 
 let renderer = new THREE.WebGLRenderer();
 renderer.setClearColor(0x2B2B2B);
@@ -93,11 +83,78 @@ renderer.shadowMap.enabled = true;
 
 document.body.appendChild(renderer.domElement);
 
+let uniforms = {
+    time: {
+        type: 'f',
+        value: 0.0
+    },
+    size: {
+        type: 'f',
+        value: 32.0
+    }
+};
+
+let points;
+
+let createParticles = function () {
+    let colorsPerFace = [
+        "#7BFFEF", "#6FE8B8", "#7FFFAC", "#6FE873", "#FFDEAA"
+    ];
+
+    function hexToRgb(hex) {
+        let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return {
+            r: parseInt(result[1], 16) / 255,
+            g: parseInt(result[2], 16) / 255,
+            b: parseInt(result[3], 16) / 255
+        };
+    }
+
+    const vertices = [];
+    const colors = [];
+    const particleCount = 20000;
+
+    const geometry = new THREE.BufferGeometry();
+    const dist = window.innerWidth * 3;
+
+    for (let i = 0; i < particleCount; i++) {
+        const x = Math.floor(Math.random() * dist - dist / 2);
+        const y = Math.floor(Math.random() * dist - dist / 2);
+        const z = Math.floor(Math.random() * dist - dist / 2);
+        vertices.push(x, y, z);
+
+        const rgbColor = hexToRgb(colorsPerFace[Math.floor(Math.random() * colorsPerFace.length)]);
+        colors.push(rgbColor.r, rgbColor.g, rgbColor.b);
+    }
+
+    const verticesArray = new Float32Array(vertices);
+    geometry.addAttribute('position', new THREE.BufferAttribute(verticesArray, 3));
+
+    const colorsArray = new Float32Array(colors);
+    geometry.addAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+
+    const material = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+
+    points = new THREE.Points(geometry, material);
+    scene.add(points);
+};
+
+createParticles();
+
 let render = function (t) {
     TWEEN.update(t);
 
-    clock.getDelta();
+    let delta = clock.getDelta();
     let time = clock.elapsedTime;
+
+    uniforms.time.value += 0.5;
 
     let len = objectGroup.children.length;
     for (let i = 0; i < len; i++) {
@@ -115,6 +172,9 @@ let render = function (t) {
             geometry.vertices[i].y = originalVertices[i].y + Math.sin(t * 0.8) * offset;
         }
     }
+
+    objectGroup.rotation.y += delta;
+    points.rotation.y += delta * 0.1;
 
     renderer.render(scene, camera);
 
@@ -134,13 +194,13 @@ let tween = function () {
         z: camera.position.z
     };
     new TWEEN.Tween(coords)
-        .to({x: x, y: y, z: z}, 800)
-        .easing(TWEEN.Easing.Quadratic.Out)
+        .to({x: x, y: y, z: z}, 1000)
+        .easing(TWEEN.Easing.Exponential.Out)
         .onUpdate(function () {
             camera.position.x = coords.x;
             camera.position.y = coords.y;
             camera.position.z = coords.z;
-            camera.lookAt(new THREE.Vector3(0, 0, 0));
+            camera.lookAt(cameraLookAt);
         })
         .onComplete(function () {
             tween();
