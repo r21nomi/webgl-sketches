@@ -11,21 +11,42 @@ const vertexShader = require('webpack-glsl-loader!./shader/trails.vert');
 const fragmentShader = require('webpack-glsl-loader!./shader/trails.frag');
 
 const scene = new THREE.Scene();
+const bgColor = {
+    r: 0.9,
+    g: 0.8,
+    b: 0.7
+};
+scene.background = new THREE.Color(bgColor.r, bgColor.g, bgColor.b);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 
 document.body.appendChild(renderer.domElement);
 
-const camera = new THREE.Camera();
+const fov = 40;
+const aspect = window.innerWidth / window.innerHeight;
+const zNear = 0.1;
+const zFar = 1000;
+const camera = new THREE.PerspectiveCamera(fov, aspect, zNear, zFar);
+camera.position.set(0, 0, 0.8);
 
 let len = 300;
-let num = 200;
-let uni;
+let num = 600;
+let uniform = {
+    time: {
+        type: "f",
+        value: 1.0
+    },
+    bgColor: {
+        type: "v3",
+        value: new THREE.Vector3(bgColor.r, bgColor.g, bgColor.b)
+    },
+    texturePosition: { value: null },
+    textureVelocity: { value: null }
+};
 let time = 0;
 let clock = new THREE.Clock();
-let obj;
-let comTexs = {
+let computeShaderTex = {
     position:{
         texture: null,
         uniforms: null,
@@ -44,24 +65,8 @@ const initComputeRenderer = () => {
     let initPosTex = computeRenderer.createTexture();
     let intVelTex = computeRenderer.createTexture();
 
-    initPosition(initPosTex);
-
-    // Bind texture and shader to renderer
-    comTexs.position.texture = computeRenderer.addVariable("texturePosition", comShaderPosition, initPosTex);
-    comTexs.velocity.texture = computeRenderer.addVariable("textureVelocity", comShaderVelocity, intVelTex);
-
-    computeRenderer.setVariableDependencies(comTexs.position.texture, [comTexs.position.texture, comTexs.velocity.texture] );
-    comTexs.position.uniforms = comTexs.position.texture.material.uniforms;
-
-    computeRenderer.setVariableDependencies(comTexs.velocity.texture, [comTexs.position.texture, comTexs.velocity.texture] );
-    comTexs.velocity.uniforms = comTexs.velocity.texture.material.uniforms;
-    comTexs.velocity.uniforms.time =  { type:"f", value : 0};
-
-    computeRenderer.init();
-}
-
-const initPosition = (tex) => {
-    const texArray = tex.image.data;  // length is (len * num * 4)
+    // Initialize trails positions
+    const texArray = initPosTex.image.data;  // length is (len * num * 4)
     let rangeVal = 0.1;
     let range = new THREE.Vector3(rangeVal, rangeVal, rangeVal);
     for (let i = 0; i < texArray.length; i += len * 4) {  // 4 means xyzw
@@ -79,6 +84,19 @@ const initPosition = (tex) => {
             texArray[i + j + 3] = 0.0;
         }
     }
+
+    // Bind texture and shader to renderer
+    computeShaderTex.position.texture = computeRenderer.addVariable("texturePosition", comShaderPosition, initPosTex);
+    computeShaderTex.velocity.texture = computeRenderer.addVariable("textureVelocity", comShaderVelocity, intVelTex);
+
+    computeRenderer.setVariableDependencies(computeShaderTex.position.texture, [computeShaderTex.position.texture, computeShaderTex.velocity.texture] );
+    computeShaderTex.position.uniforms = computeShaderTex.position.texture.material.uniforms;
+
+    computeRenderer.setVariableDependencies(computeShaderTex.velocity.texture, [computeShaderTex.position.texture, computeShaderTex.velocity.texture] );
+    computeShaderTex.velocity.uniforms = computeShaderTex.velocity.texture.material.uniforms;
+    computeShaderTex.velocity.uniforms.time = uniform.time;
+
+    computeRenderer.init();
 }
 
 const createTrails = () => {
@@ -91,7 +109,7 @@ const createTrails = () => {
      * ----------
      */
     let pArray = new Float32Array(num * len * 3);  // size * xyz
-    // let indices = new Uint32Array((num * len - 1) * 3);
+    let indices = new Uint32Array((num * len - 1) * 3);
     let uv = new Float32Array(num * len * 2);  // size * xy
 
     for (let i = 0; i < num; i++) {
@@ -105,46 +123,50 @@ const createTrails = () => {
             uv[c * 2] = j / len;
             uv[c * 2 + 1] = i / num;
 
-            // indices[n] = c;
-            // indices[n + 1] = Math.min(c + 1, i * len + len - 1);
-            // indices[n + 2] = Math.min(c + 1, i * len + len - 1);
+            indices[n] = c;
+            indices[n + 1] = Math.min(c + 1, i * len + len - 1);
+            indices[n + 2] = Math.min(c + 1, i * len + len - 1);
         }
     }
 
     geo.setAttribute("position", new THREE.BufferAttribute(pArray, 3));
     geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
-    // geo.setIndex(new THREE.BufferAttribute(indices, 1));
-
-    uni = {
-        texturePosition: { value: null },
-        textureVelocity: { value: null }
-    }
+    geo.setIndex(new THREE.BufferAttribute(indices, 1));
 
     let mat = new THREE.ShaderMaterial({
-        uniforms: uni,
+        uniforms: uniform,
         vertexShader: vertexShader,
         fragmentShader: fragmentShader
     });
     mat.wireframe = true;
 
-    obj = new THREE.Mesh(geo, mat);
-    obj.matrixAutoUpdate = false;
-    obj.updateMatrix();
+    let mesh = new THREE.Mesh(geo, mat);
+    mesh.matrixAutoUpdate = false;
+    mesh.updateMatrix();
 
-    scene.add(obj);
+    scene.add(mesh);
 };
 
 const render = () => {
     time += clock.getDelta();
-    computeRenderer.compute();
-    comTexs.velocity.uniforms.time.value = time;
-    uni.texturePosition.value = computeRenderer.getCurrentRenderTarget(comTexs.position.texture).texture;
-    uni.textureVelocity.value = computeRenderer.getCurrentRenderTarget(comTexs.velocity.texture).texture;
 
-    // uniforms.time.value += 0.05;
+    uniform.time.value = time;
+
+    computeRenderer.compute();
+    uniform.texturePosition.value = computeRenderer.getCurrentRenderTarget(computeShaderTex.position.texture).texture;
+    uniform.textureVelocity.value = computeRenderer.getCurrentRenderTarget(computeShaderTex.velocity.texture).texture;
+
     renderer.render(scene, camera);
 
     requestAnimationFrame(render);
+};
+
+const onResize = () => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(width, height);
 };
 
 initComputeRenderer();
@@ -154,14 +176,3 @@ onResize();
 render();
 
 window.addEventListener('resize', onResize);
-
-function onResize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(width, height);
-
-    // uniforms.resolution.value.x = renderer.domElement.width;
-    // uniforms.resolution.value.y = renderer.domElement.height;
-}

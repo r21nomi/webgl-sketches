@@ -122,10 +122,14 @@ void main() {
         float id = uv.y * resolution.x;
 
         vec3 acceleration = curlNoise(position * 0.001 + 0.06 * time);
-        float u_boundaryRadius = 20.0;
+        float u_boundaryRadius = 200.0;
         acceleration = 40.1 * mix(acceleration, -normalize(position), smoothstep(u_boundaryRadius, u_boundaryRadius * 1.05, length(position)));
 
         velocity = limit(velocity + acceleration, 20.0);
+        velocity = acceleration;
+
+        velocity.x += snoise(position * 0.1 + time * 0.1 + id) * 12.0;
+        velocity.y += snoise(position * 0.1 + time * 0.3 + id) * 18.0;
 
         gl_FragColor = vec4(velocity, 1.0);
     }
