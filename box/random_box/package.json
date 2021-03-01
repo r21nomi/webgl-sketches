@@ -13,7 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "simplex-noise": "^2.4.0",
-    "three": "^0.104.0"
+    "three": "^0.125.0"
   },
   "devDependencies": {
     "webpack": "^4.17.1",
