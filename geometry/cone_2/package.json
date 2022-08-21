@@ -13,7 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "glslify": "^6.2.1",
-    "three": "^0.93.0"
+    "three": "^0.125.0"
   },
   "devDependencies": {
     "webpack": "^4.12.0",
