@@ -8,8 +8,7 @@ import {util} from "~/util"
 export const Anima = function (this: any) {
   const clock = new THREE.Clock()
   const scene = new THREE.Scene()
-  const scene_bg = new THREE.Scene()
-  let camera, camera_bg, mesh
+  let camera, mesh
 
   let geometry
   const vertices: number[] = []
@@ -53,8 +52,6 @@ export const Anima = function (this: any) {
     // Make camera distance same as actual pixel value.
     const z = stageHeight / Math.tan((fov * Math.PI) / 360) / 2
     camera.position.z = z
-
-    camera_bg = new THREE.OrthographicCamera(0, windowSize.w, windowSize.h, 0, 0, 10000)
   }
 
   const initObjects = () => {
@@ -129,7 +126,6 @@ export const Anima = function (this: any) {
     uniforms.time.value = time
 
     renderer.render(scene, camera)
-    renderer.render(scene_bg, camera_bg)
 
     requestAnimationFrame(render)
   }
